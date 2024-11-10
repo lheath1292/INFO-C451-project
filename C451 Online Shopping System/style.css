@@ -1,0 +1,103 @@
+/* Basic CSS Styling */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header a {
+    color: #fff;
+    text-decoration: none;
+    margin: 0 15px;
+}
+
+header a:hover {
+    text-decoration: underline;
+}
+
+.header-left a {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.header-right a {
+    font-size: 18px;
+}
+
+/* Centering the Search Bar */
+.header-center {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+}
+
+/* Styling the Search Form */
+.search-form {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 60%;
+    max-width: 600px; /* Limits max width for a more consistent look */
+}
+
+.search-bar {
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-right: 10px;
+    background-color: #fff;
+    outline: none;
+}
+
+.search-bar:focus {
+    border-color: 
+}
+
+/* Styling for the Search Button */
+.search-button {
+    padding: 12px 18px; /* Make the button larger */
+    background-color: #007bff; /* Blue background */
+    color: white; /* White text */
+    border: none; /* Remove default border */
+    border-radius: 5px; /* Rounded corners */
+    cursor: pointer; /* Pointer cursor on hover */
+    font-size: 16px; /* Font size */
+    transition: background-color 0.3s ease; /* Smooth color transition */
+}
+
+.search-button:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+}
+
+/* Styling for Footer */
+footer {
+    background-color: #333; /* Dark background color */
+    color: white; /* White text color */
+    text-align: center; /* Centered text */
+    padding: 15px 0; /* Padding above and below the footer text */
+    position: fixed; /* Fix the footer to the bottom of the page */
+    bottom: 0; /* Align the footer to the bottom */
+    width: 100%; /* Make the footer span across the full width */
+}
+
+.product-item img {
+    width: 150px;         /* Set desired width */
+    height: auto;         /* Maintains aspect ratio */
+    object-fit: cover;    /* Crops image to fit if necessary */
+    border-radius: 5px;   /* Optional: round the corners slightly */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1); /* Optional: shadow for styling */
+}
+
