@@ -1,7 +1,9 @@
 <?php
 
 // Include database connection file
+
 include('db_connect.php');
+include 'header.php';
 
 // Function to get all products from the database
 function getProducts() {
@@ -18,11 +20,26 @@ function addToCart($productId, $quantity) {
         $_SESSION['cart'] = []; // Initialize cart if it doesn't exist
     }
 
-    // Check if the product is already in the carts
-    if (isset($_SESSION['cart'][$productId])) {
-        $_SESSION['cart'][$productId] += $quantity; // Increase the quantity if the product is already in the cart
-    } else {
-        $_SESSION['cart'][$productId] = $quantity; // Add the product to the cart if it's not already there
+    // Fetch product details from the database
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = :id");
+    $stmt->execute(['id' => $productId]);
+    $product = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($product) {
+        // Check if the product is already in the cart
+        if (isset($_SESSION['cart'][$productId])) {
+            // Increase the quantity if the product is already in the cart
+            $_SESSION['cart'][$productId]['quantity'] += $quantity;
+        } else {
+            // Add the product to the cart if it's not already there
+            $_SESSION['cart'][$productId] = [
+                'name' => $product['name'],
+                'price' => $product['price'],
+                'quantity' => $quantity,
+                'image_url' => $product['image_url']
+            ];
+        }
     }
 }
 
@@ -37,23 +54,16 @@ function removeFromCart($productId) {
 function getCart() {
     $cart = [];
     if (isset($_SESSION['cart'])) {
-        global $pdo;
-        
-        foreach ($_SESSION['cart'] as $productId => $quantity) {
-            // Fetch product details from the database
-            $stmt = $pdo->prepare("SELECT * FROM products WHERE id = :id");
-            $stmt->execute(['id' => $productId]);
-            $product = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($product) {
-                $cart[] = [
-                    'id' => $productId,
-                    'name' => $product['name'],
-                    'price' => $product['price'],
-                    'quantity' => $quantity,
-                    'total' => $product['price'] * $quantity
-                ];
-            }
+        foreach ($_SESSION['cart'] as $productId => $item) {
+            // Prepare the cart item with additional fields
+            $cart[] = [
+                'id' => $productId,
+                'name' => $item['name'],
+                'price' => $item['price'],
+                'quantity' => $item['quantity'],
+                'total' => $item['price'] * $item['quantity'],
+                'image_url' => $item['image_url']
+            ];
         }
     }
     return $cart;
@@ -63,16 +73,8 @@ function getCart() {
 function getCartTotal() {
     $total = 0;
     if (isset($_SESSION['cart'])) {
-        global $pdo;
-        
-        foreach ($_SESSION['cart'] as $productId => $quantity) {
-            $stmt = $pdo->prepare("SELECT price FROM products WHERE id = :id");
-            $stmt->execute(['id' => $productId]);
-            $product = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($product) {
-                $total += $product['price'] * $quantity; // Calculate total price based on quantity and price
-            }
+        foreach ($_SESSION['cart'] as $productId => $item) {
+            $total += $item['price'] * $item['quantity']; // Calculate total price based on quantity and price
         }
     }
     return $total;
@@ -84,14 +86,27 @@ function clearCart() {
 }
 
 // Function to handle user login
-function login($username, $password) {
-    // In a real application, you would check the username and password against a database
-    if ($username == 'admin' && $password == 'password123') { // Simple hardcoded check for demonstration
-        $_SESSION['user'] = $username; // Set session for logged-in user
+function login($email, $password) {
+    global $pdo;
+
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE LOWER(email) = LOWER(:email)");
+    $stmt->execute(['email' => $email]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+    if (password_verify($password, $user['password'])) {
+        $_SESSION['user'] = $user['first_name'] . ' ' . $user['last_name'];
+        $_SESSION['user_id'] = $user['id'];
         return true;
+    } else {
+        error_log('Password mismatch for user: ' . $email);  // Logs the issue
+        die('Password mismatch.');  // Debugging line
     }
-    return false; // Return false if login failed
+    }
+    return false;
 }
+
+
 
 // Function to handle user logout
 function logout() {
@@ -102,4 +117,73 @@ function logout() {
 function isLoggedIn() {
     return isset($_SESSION['user']); // Check if a user is logged in
 }
+
+
+// User Registration
+function register($firstName, $lastName, $password, $email) {
+    global $pdo;
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    try {
+        $stmt = $pdo->prepare("INSERT INTO users (first_name, last_name, password, email) 
+                               VALUES (:first_name, :last_name, :password, :email)");
+        $stmt->execute([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'password' => $hashedPassword,
+            'email' => $email
+        ]);
+        return true;
+    } catch (PDOException $e) {
+        if ($e->getCode() == 23000) {  // Duplicate entry
+            return false;
+        }
+        throw $e;
+    }
+}
+
+
+function placeOrder($userId) {
+    global $pdo;
+
+    if (!isset($_SESSION['cart']) || empty($_SESSION['cart'])) {
+        return false;  // No items in cart
+    }
+
+    $totalAmount = getCartTotal();  // Calculate total cart amount
+
+    try {
+        // Insert new order into orders table
+        $stmt = $pdo->prepare("INSERT INTO orders (user_id, total_amount) VALUES (:user_id, :total_amount)");
+        $stmt->execute([
+            'user_id' => $userId,
+            'total_amount' => $totalAmount
+        ]);
+
+        // Get the last inserted order ID
+        $orderId = $pdo->lastInsertId();
+
+        // Insert each item into order_items table (if exists)
+        foreach ($_SESSION['cart'] as $productId => $item) {
+            $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, quantity, price) 
+                                  VALUES (:order_id, :product_id, :quantity, :price)");
+            $stmt->execute([
+                'order_id' => $orderId,
+                'product_id' => $productId,
+                'quantity' => $item['quantity'],
+                'price' => $item['price']
+            ]);
+        }
+
+        // Clear the cart after placing order
+        clearCart();
+        return true;
+    } catch (PDOException $e) {
+        error_log("Order Error: " . $e->getMessage());
+        return false;
+    }
+}
+
+
 ?>
