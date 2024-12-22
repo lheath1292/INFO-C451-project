@@ -1,67 +1,105 @@
 <?php
 
-// Include the database connection and functions
-include('db_connect.php');
-include('functions.php');  // Assuming your cart functions are in this file
+if (isset($_GET['clear_cart'])) {
+    unset($_SESSION['cart']);
+    header('Location: cart.php');
+    exit();
+}
 
-// Get the cart items and total price
-$cartItems = getCart();  // Fetches the items in the cart from the session
-$cartTotal = getCartTotal();  // Calculates the total price of the cart
+
+include('db_connect.php');
+include('functions.php');
+
+if (!isset($_SESSION['cart'])) {
+    $_SESSION['cart'] = [];
+}
+
+$cart = &$_SESSION['cart'];
+$subtotal = 0;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $productId = $_POST['product_id'] ?? null;
+
+    if ($productId) {
+        if ($_POST['action'] === 'update' && isset($_POST['quantity'])) {
+            $newQuantity = max(1, (int)$_POST['quantity']);
+            if (isset($cart[$productId])) {
+                $cart[$productId]['quantity'] = $newQuantity;
+            }
+        } elseif ($_POST['action'] === 'remove') {
+            if (isset($cart[$productId])) {
+                unset($cart[$productId]);
+            }
+        }
+    }
+}
+
+foreach ($cart as $item) {
+    $subtotal += ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+}
+
+if (isset($_POST['checkout'])) {
+    if (!isset($_SESSION['user_id'])) {
+        $error = "You need to be logged in to place an order.";
+    } else {
+        if (placeOrder($_SESSION['user_id'])) {
+            $success = "Order placed successfully!";
+        } else {
+            $error = "Failed to place order.";
+        }
+    }
+}
 
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Cart</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Your Cart - Shop</title>
 </head>
 <body>
 
-<?php include('header.php'); ?> 
-
-<div class="cart-container">
+<section id="cart">
     <h2>Your Cart</h2>
-
-    <?php if (count($cartItems) > 0): ?>
-        <table class="cart-table">
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($cartItems as $item): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($item['name']); ?></td>
-                        <td>$<?php echo number_format($item['price'], 2); ?></td>
-                        <td><?php echo $item['quantity']; ?></td>
-                        <td>$<?php echo number_format($item['total'], 2); ?></td>
-                        <td>
-                            <a href="remove_from_cart.php?id=<?php echo $item['id']; ?>">Remove</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
-        <div class="cart-total">
-            <p><strong>Total: $<?php echo number_format($cartTotal, 2); ?></strong></p>
+    <?php if (!empty($cart)): ?>
+        <div class="product-list">
+            <?php foreach ($cart as $productId => $item): ?>
+                <div class="product-item">
+                    <img src="<?= htmlspecialchars($item['image_url'] ?? '') ?>" alt="<?= htmlspecialchars($item['name'] ?? 'Unknown Product') ?>">
+                    <div>
+                        <h3><?= htmlspecialchars($item['name'] ?? 'Unknown Product') ?></h3>
+                        <p><strong>Price:</strong> $<?= number_format($item['price'] ?? 0, 2) ?></p>
+                        <p>
+                            <form method="post">
+                                <input type="hidden" name="product_id" value="<?= htmlspecialchars($productId) ?>">
+                                <input type="number" name="quantity" value="<?= htmlspecialchars($item['quantity'] ?? 1) ?>" min="1">
+                                <button type="submit" name="action" value="update">Update</button>
+                            </form>
+                        </p>
+                        <p><strong>Total:</strong> $<?= number_format(($item['price'] ?? 0) * ($item['quantity'] ?? 1), 2) ?></p>
+                        <form method="post">
+                            <input type="hidden" name="product_id" value="<?= htmlspecialchars($productId) ?>">
+                            <button type="submit" name="action" value="remove">Remove</button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
-        
-        <a href="checkout.php" class="btn checkout-btn">Proceed to Checkout</a>
+        <div class="cart-subtotal">
+            <h3>Subtotal: $<?= number_format($subtotal, 2) ?></h3>
+        </div>
+		
+		<?php if (!empty($cart)): ?>
+    <form method="POST">
+        <button type="submit" name="checkout">Checkout</button>
+    </form>
+<?php endif; ?>
+
     <?php else: ?>
         <p>Your cart is empty.</p>
     <?php endif; ?>
-</div>
-
-<?php include('footer.php'); ?> 
-
-</body>
-</html>
+</section>
+<?php include('footer.php'); ?>
