@@ -1,53 +1,36 @@
 <?php
-// Include the database connection file
 include('db_connect.php');
 
-// Get the search query from the form (if it exists)
-if (isset($_GET['query'])) {
-    $searchQuery = $_GET['query'];
+$searchQuery = isset($_GET['query']) ? trim($_GET['query']) : '';
+$products = [];
 
-    // Prepare a SQL query to search products by name or description
+if (!empty($searchQuery)) {
     $stmt = $pdo->prepare("SELECT * FROM products WHERE name LIKE :query OR description LIKE :query");
-    $stmt->execute(['query' => '%' . $searchQuery . '%']);  // Wildcards to match any part of the string
-    $products = $stmt->fetchAll();
-} else {
-    // If no search query, fetch all products (optional)
-    $stmt = $pdo->query("SELECT * FROM products");
+    $stmt->execute(['query' => "%$searchQuery%"]);
     $products = $stmt->fetchAll();
 }
 
-// Include the header (this will now be shared across all pages)
 include('header.php');
 ?>
 
 <div class="product-list">
     <h2>Search Results</h2>
-    <?php if (count($products) > 0): ?>
-        <div class="product-list">
-            <?php foreach ($products as $product): ?>
-                <div class="product-item">
-                    <!-- Display product image, handle missing image cases -->
-                    <img src="images/<?php echo htmlspecialchars($product['image_url']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" />
-                    
-                    <h3><?php echo htmlspecialchars($product['name']); ?></h3>
-                    <p><?php echo htmlspecialchars($product['description']); ?></p>
-                    <p>Price: $<?php echo number_format($product['price'], 2); ?></p>
-                    <p>Stock: <?php echo $product['stock_quantity']; ?> available</p>
+    <?php if (!empty($products)): ?>
+        <?php foreach ($products as $product): ?>
+            <div class="product-item">
+                <img src="<?= htmlspecialchars($product['image_url']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" />
+                <div class="product-info">
+                    <h3><a href="product.php?id=<?= htmlspecialchars($product['id']) ?>"><?= htmlspecialchars($product['name']) ?></a></h3>
+					                    <p class="price">Price: $<?= number_format($product['price'], 2) ?></p>
+                    <p>Brand: <?= htmlspecialchars($product['brand']) ?></p>
 
-                    <!-- Link to individual product page -->
-                    <a href="product.php?id=<?php echo $product['id']; ?>" class="product-link">View Product</a>
+                    <p>Stock: <?= htmlspecialchars($product['stock_quantity']) ?> available</p>
                 </div>
-            <?php endforeach; ?>
-        </div>
+            </div>
+        <?php endforeach; ?>
     <?php else: ?>
         <p>No products found matching your search.</p>
     <?php endif; ?>
 </div>
 
-<!-- Footer Section -->
-<footer>
-    <p>&copy; 2024 Your Shop</p>
-</footer>
-
-</body>
-</html>
+<?php include('footer.php'); ?>
