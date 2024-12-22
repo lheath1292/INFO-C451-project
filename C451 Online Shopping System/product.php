@@ -1,45 +1,58 @@
 <?php
+// product.php
+include('db_connect.php');
+include('header.php');
 
-include 'header.php';
-include 'functions.php';
 
-// Dummy product list (in a real application, this would come from a database)
-$products = [
-    1 => ['name' => 'Product 1', 'description' => 'This is product 1', 'price' => 20, 'image' => 'product1.jpg'],
-    2 => ['name' => 'Product 2', 'description' => 'This is product 2', 'price' => 25, 'image' => 'product2.jpg'],
-    3 => ['name' => 'Product 3', 'description' => 'This is product 3', 'price' => 30, 'image' => 'product3.jpg'],
-];
+$productId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$product = [];
 
-// Get product ID from URL
-$productId = isset($_GET['id']) ? (int)$_GET['id'] : null;
+if ($productId > 0) {
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = :id");
+    $stmt->execute(['id' => $productId]);
+    $product = $stmt->fetch();
+}
 
-if ($productId && isset($products[$productId])) {
-    $product = $products[$productId];
-} else {
-    echo "<p>Product not found.</p>";
-    exit;
+if (isset($_POST['add_to_cart'])) {
+    if (!isset($_SESSION['cart'])) {
+        $_SESSION['cart'] = [];
+    }
+    $cart = &$_SESSION['cart'];
+
+    if (isset($cart[$productId])) {
+        $cart[$productId]['quantity'] += 1;
+    } else {
+        $cart[$productId] = [
+            'id' => $product['id'],
+            'name' => $product['name'],
+            'price' => $product['price'],
+            'quantity' => 1,
+            'image_url' => $product['image_url']
+        ];
+    }
+    header("Location: product.php?id=$productId");
+    exit();
 }
 ?>
 
 <div class="product-detail">
-    <img src="images/<?php echo $product['image']; ?>" alt="<?php echo $product['name']; ?>">
-    <h2><?php echo $product['name']; ?></h2>
-    <p><?php echo $product['description']; ?></p>
-    <p>Price: $<?php echo $product['price']; ?></p>
-    
-    <form method="POST">
-        <button type="submit" name="addToCart" value="<?php echo $productId; ?>">Add to Cart</button>
-    </form>
+    <?php if ($product): ?>
+        <img src="<?= htmlspecialchars($product['image_url']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" />
+        <div class="product-description">
+            <h2><?= htmlspecialchars($product['name']) ?></h2>
+            <p class="price"><strong>Price:</strong> $<?= number_format($product['price'], 2) ?></p>
+            <p><strong>Brand:</strong> <?= htmlspecialchars($product['brand']) ?></p>
+            <p><strong>Description:</strong> <?= htmlspecialchars($product['description']) ?></p>
+            <p><strong>Stock:</strong> <?= htmlspecialchars($product['stock_quantity']) ?> available</p>
+            
+            <form method="post" action="">
+                <input type="hidden" name="product_id" value="<?= htmlspecialchars($product['id']) ?>">
+                <button type="submit" name="add_to_cart">Add to Cart</button>
+            </form>
+        </div>
+    <?php else: ?>
+        <p>Product not found.</p>
+    <?php endif; ?>
 </div>
 
-<?php
-// Handle adding to cart
-if (isset($_POST['addToCart'])) {
-    $productId = (int)$_POST['addToCart'];
-    $quantity = 1; // Default quantity of 1 when added from the product page
-    addToCart($productId, $quantity); // Function from functions.php
-    echo "<p>Product added to cart!</p>";
-}
-
-include 'footer.php';
-?>
+<?php include('footer.php'); ?>
