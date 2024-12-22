@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+<?php
+session_start(); 
+?>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -19,8 +22,19 @@
         </form>
     </div>
     <div class="header-right">
-        <a href="cart.php">Cart (<?php echo isset($_SESSION['cart']) ? array_sum($_SESSION['cart']) : 0; ?>)</a>
+        <?php
+      
+        $cartItemCount = 0;
+        if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
+         
+            foreach ($_SESSION['cart'] as $item) {
+                if (isset($item['quantity'])) {
+                    $cartItemCount += $item['quantity'];
+                }
+            }
+        }
+        ?>
+        <a href="cart.php">Cart (<?php echo $cartItemCount; ?>)</a>
         <a href="account.php">Account</a>
     </div>
 </header>
-
